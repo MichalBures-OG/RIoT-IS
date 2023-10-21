@@ -13,23 +13,36 @@ const (
 	mqttTopic          = "demo/eclipse-paho-go-client"
 	mqttBrokerUsername = "admin"
 	mqttBrokerPassword = "password"
+
+	useRelationalDatabase = false
 )
 
 var relationalDatabaseClient RelationalDatabaseClient = nil
+var mongoDBClient MongoDBClient = nil
 
 func checkKPIFulfillment(upstreamMessage UpstreamMessage) {
 
 	device := upstreamMessage.Data.Devices[0] // TODO: Just one device? Or multiple? And how many?
 	deviceType := device.DeviceType
 
-	rootKPIDefinitionsForTheGivenDeviceType, err := relationalDatabaseClient.ObtainRootKPIDefinitionsForTheGivenDeviceType(deviceType)
+	var err error
+	var rootKPIDefinitionsForTheGivenDeviceType []RootKPIDefinition
+
+	if useRelationalDatabase {
+		rootKPIDefinitionsForTheGivenDeviceType, err = relationalDatabaseClient.ObtainRootKPIDefinitionsForTheGivenDeviceType(deviceType)
+	} else { // use MongoDB
+		rootKPIDefinitionsForTheGivenDeviceType, err = mongoDBClient.ObtainRootKPIDefinitionsForTheGivenDeviceType(deviceType)
+	}
 	if err != nil {
-		log.Printf("Could not load the KPI definitions for the device type '%s' from the database: cannot proceed with the KPI fulfillment check.\n", deviceType)
+		log.Printf("Could not load the KPI definitions for the device type '%s': cannot proceed with the KPI fulfillment check.\n", deviceType)
+		log.Printf("Error: %v\n", err)
 		return
 	}
 
 	log.Println("----- ----- ----- ----- ----- ----- ----- -----")
 	for _, rootKPIDefinition := range rootKPIDefinitionsForTheGivenDeviceType {
+
+		log.Printf("KPI definition: %+v\n", rootKPIDefinition.DefinitionRoot)
 
 		kpiFulfillmentStatusText := "Fulfilled"
 		if !rootKPIDefinition.isFulfilled(device.DeviceParameters) {
@@ -69,6 +82,18 @@ func runDemo() {
 	err = relationalDatabaseClient.InitializeDatabase()
 	if err != nil {
 		log.Println("Cannot initialize the relational database: terminating the DEMO...")
+		return
+	}
+
+	mongoDBClient = NewMongoDBClient()
+	err = mongoDBClient.ConnectToDatabase()
+	if err != nil {
+		log.Println("Cannot connect to MongoDB: terminating the DEMO...")
+		return
+	}
+	err = mongoDBClient.InitializeDatabase()
+	if err != nil {
+		log.Println("Cannot initialize MongoDB: terminating the DEMO...")
 		return
 	}
 
