@@ -205,6 +205,90 @@ input SDInstanceGroupInput {
   sdInstanceIDs: [ID!]!
 }
 
+# ----- Statistics
+
+scalar Date
+
+input SimpleSensors {
+  sensors: [String!]!
+}
+
+input SensorsWithFields {
+  sensors: [SensorField!]!
+}
+
+input SensorField {
+  key: String!
+  values: [String!]!
+}
+
+enum StatisticsOperation {
+  mean
+  min
+  max
+  first
+  sum
+  last
+  none
+  count
+  integral
+  median
+  mode
+  quantile
+  reduce
+  skew
+  spread
+  stddev
+  timeweightedavg
+}
+
+"""
+Data used for querying the selected bucket
+"""
+input StatisticsInput {
+  """
+  Start of the querying window
+  """
+  from: Date
+  """
+  End of the querying window
+  """
+  to: Date
+  """
+  Amount of minutes to aggregate by
+  For example if the queried range has 1 hour and aggregateMinutes is set to 10 the aggregation will result in 6 points
+  """
+  aggregateMinutes: Int
+  """
+  Timezone override default UTC.
+  For more details why and how this affects queries see: https://www.influxdata.com/blog/time-zones-in-flux/.
+  In most cases you can ignore this and some edge aggregations can be influenced.
+  If you need a precise result or the aggregation uses high amount of minutes provide the target time zone.
+  """
+  timezone: String
+  """
+  Aggregation operator to use, if needed
+  """
+  operation: StatisticsOperation
+}
+
+
+scalar JSON
+
+type OutputData {
+  time: Date!
+  deviceId: String!
+  deviceType: String
+  data: JSON!
+}
+
+input InputData {
+  time: Date!
+  deviceId: String!
+  deviceType: String
+  data: JSON!
+}
+
 # ----- Queries, mutations and subscriptions -----
 
 type Query {
@@ -216,6 +300,8 @@ type Query {
   kpiFulfillmentCheckResults: [KPIFulfillmentCheckResult!]!
   sdInstanceGroup(id: ID!): SDInstanceGroup!
   sdInstanceGroups: [SDInstanceGroup!]!
+  statisticsQuerySimpleSensors(request: StatisticsInput sensors: SimpleSensors!): [OutputData!]!
+  statisticsQuerySensorsWithFields(request: StatisticsInput sensors: SensorsWithFields!): [OutputData!]!
 }
 
 type Mutation {
@@ -228,6 +314,7 @@ type Mutation {
   createSDInstanceGroup(input: SDInstanceGroupInput!): SDInstanceGroup!
   updateSDInstanceGroup(id: ID!, input: SDInstanceGroupInput!): SDInstanceGroup!
   deleteSDInstanceGroup(id: ID!): Boolean!
+  statisticsMutate(inputData: InputData!): Boolean!
 }
 
 type Subscription {

@@ -133,14 +133,31 @@ func processMQTTMessagePayload(mqttMessagePayload []byte, rabbitMQClient rabbitm
 	}
 	messagePayloadObject := jsonDeserializationResult.GetPayload()
 	sd := messagePayloadObject.Data.SDArray[0]
+
+	inputData := sharedModel.InputData{
+		Timestamp:           messagePayloadObject.Notification.Timestamp,
+		SDInstanceUID:       sd.UID,
+		SDTypeSpecification: sd.Type,
+		Parameters:          sd.Parameters,
+	}
+	jsonSerializationResult := sharedUtils.SerializeToJSON(inputData)
+
+	err := rabbitMQClient.PublishJSONMessage(sharedUtils.NewEmptyOptional[string](), sharedUtils.NewOptionalOf(sharedConstants.TimeSeriesStoreDataQueueName), jsonSerializationResult.GetPayload())
+	if err != nil {
+		log.Println("Failed to publish a time series store request message")
+		return
+	}
+
+	log.Printf("Succesfully to published a time series store request message for %s with timestamp %s", inputData.SDInstanceUID, inputData.Timestamp)
+
 	if !mqttMessageSDTypeCorrespondsToSDTypeDefinitions(sd.Type) {
 		return
 	}
 	switch determineSDInstanceScenario(sd.UID) {
 	case unknownSDInstance:
-		generateSDInstanceRegistrationRequest(sd.UID, sd.Type, messagePayloadObject.Notification.Timestamp, rabbitMQClient)
+		generateSDInstanceRegistrationRequest(sd.UID, sd.Type, float32(messagePayloadObject.Notification.Timestamp), rabbitMQClient)
 	case confirmedSDInstance:
-		generateKPIFulfillmentCheckRequest(sd.UID, sd.Type, sd.Parameters, messagePayloadObject.Notification.Timestamp, rabbitMQClient)
+		generateKPIFulfillmentCheckRequest(sd.UID, sd.Type, sd.Parameters, float32(messagePayloadObject.Notification.Timestamp), rabbitMQClient)
 	}
 }
 

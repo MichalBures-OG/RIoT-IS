@@ -43,6 +43,13 @@ func (this BooleanEQAtomKPINode) GetSdParameterSpecification() string {
 	return this.SdParameterSpecification
 }
 
+type InputData struct {
+	Time       string  `json:"time"`
+	DeviceID   string  `json:"deviceId"`
+	DeviceType *string `json:"deviceType,omitempty"`
+	Data       string  `json:"data"`
+}
+
 type KPIDefinition struct {
 	ID                     uint32         `json:"id"`
 	SdTypeID               uint32         `json:"sdTypeID"`
@@ -204,6 +211,13 @@ func (this NumericLTAtomKPINode) GetSdParameterSpecification() string {
 	return this.SdParameterSpecification
 }
 
+type OutputData struct {
+	Time       string  `json:"time"`
+	DeviceID   string  `json:"deviceId"`
+	DeviceType *string `json:"deviceType,omitempty"`
+	Data       string  `json:"data"`
+}
+
 type Query struct {
 }
 
@@ -251,6 +265,37 @@ type SDType struct {
 type SDTypeInput struct {
 	Denotation string             `json:"denotation"`
 	Parameters []SDParameterInput `json:"parameters"`
+}
+
+type SensorField struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+type SensorsWithFields struct {
+	Sensors []SensorField `json:"sensors"`
+}
+
+type SimpleSensors struct {
+	Sensors []string `json:"sensors"`
+}
+
+// Data used for querying the selected bucket
+type StatisticsInput struct {
+	// Start of the querying window
+	From *string `json:"from,omitempty"`
+	// End of the querying window
+	To *string `json:"to,omitempty"`
+	// Amount of minutes to aggregate by
+	// For example if the queried range has 1 hour and aggregateMinutes is set to 10 the aggregation will result in 6 points
+	AggregateMinutes *int `json:"aggregateMinutes,omitempty"`
+	// Timezone override default UTC.
+	// For more details why and how this affects queries see: https://www.influxdata.com/blog/time-zones-in-flux/.
+	// In most cases you can ignore this and some edge aggregations can be influenced.
+	// If you need a precise result or the aggregation uses high amount of minutes provide the target time zone.
+	Timezone *string `json:"timezone,omitempty"`
+	// Aggregation operator to use, if needed
+	Operation *StatisticsOperation `json:"operation,omitempty"`
 }
 
 type StringEQAtomKPINode struct {
@@ -454,5 +499,76 @@ func (e *SDParameterType) UnmarshalGQL(v interface{}) error {
 }
 
 func (e SDParameterType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type StatisticsOperation string
+
+const (
+	StatisticsOperationMean            StatisticsOperation = "mean"
+	StatisticsOperationMin             StatisticsOperation = "min"
+	StatisticsOperationMax             StatisticsOperation = "max"
+	StatisticsOperationFirst           StatisticsOperation = "first"
+	StatisticsOperationSum             StatisticsOperation = "sum"
+	StatisticsOperationLast            StatisticsOperation = "last"
+	StatisticsOperationNone            StatisticsOperation = "none"
+	StatisticsOperationCount           StatisticsOperation = "count"
+	StatisticsOperationIntegral        StatisticsOperation = "integral"
+	StatisticsOperationMedian          StatisticsOperation = "median"
+	StatisticsOperationMode            StatisticsOperation = "mode"
+	StatisticsOperationQuantile        StatisticsOperation = "quantile"
+	StatisticsOperationReduce          StatisticsOperation = "reduce"
+	StatisticsOperationSkew            StatisticsOperation = "skew"
+	StatisticsOperationSpread          StatisticsOperation = "spread"
+	StatisticsOperationStddev          StatisticsOperation = "stddev"
+	StatisticsOperationTimeweightedavg StatisticsOperation = "timeweightedavg"
+)
+
+var AllStatisticsOperation = []StatisticsOperation{
+	StatisticsOperationMean,
+	StatisticsOperationMin,
+	StatisticsOperationMax,
+	StatisticsOperationFirst,
+	StatisticsOperationSum,
+	StatisticsOperationLast,
+	StatisticsOperationNone,
+	StatisticsOperationCount,
+	StatisticsOperationIntegral,
+	StatisticsOperationMedian,
+	StatisticsOperationMode,
+	StatisticsOperationQuantile,
+	StatisticsOperationReduce,
+	StatisticsOperationSkew,
+	StatisticsOperationSpread,
+	StatisticsOperationStddev,
+	StatisticsOperationTimeweightedavg,
+}
+
+func (e StatisticsOperation) IsValid() bool {
+	switch e {
+	case StatisticsOperationMean, StatisticsOperationMin, StatisticsOperationMax, StatisticsOperationFirst, StatisticsOperationSum, StatisticsOperationLast, StatisticsOperationNone, StatisticsOperationCount, StatisticsOperationIntegral, StatisticsOperationMedian, StatisticsOperationMode, StatisticsOperationQuantile, StatisticsOperationReduce, StatisticsOperationSkew, StatisticsOperationSpread, StatisticsOperationStddev, StatisticsOperationTimeweightedavg:
+		return true
+	}
+	return false
+}
+
+func (e StatisticsOperation) String() string {
+	return string(e)
+}
+
+func (e *StatisticsOperation) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = StatisticsOperation(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid StatisticsOperation", str)
+	}
+	return nil
+}
+
+func (e StatisticsOperation) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
